@@ -1,0 +1,46 @@
+import torch
+import torchvision
+import pycocotools
+from PIL import Image
+from torchvision.transforms.functional import pil_to_tensor
+import csv
+import os
+import glob
+import pandas as pd
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
+
+object_detection_model = fasterrcnn_resnet50_fpn(pretrained=True, progress=False)
+
+object_detection_model.eval(); 
+
+Image_dir = '/home/yan/data/'
+Image_glob = os.path.join(Image_dir, "*.jpg")
+Image_name_list = []
+Image_name_list.extend(glob.glob(Image_glob))
+
+num_list = []
+for lists in Image_name_list:
+    lists = lists.replace('/home/yan/data/','')
+    lists = lists.replace('.jpg','')
+    lists = int(lists)
+    num_list.append(lists)
+    
+def predicts(Image_i):
+    Image_preds = object_detection_model(pil_to_tensor(Image.open('/home/yan/data/'+str(Image_i)+'.jpg')).unsqueeze(dim=0) / 225.0)
+    Image_preds[0]["boxes"] = Image_preds[0]["boxes"][Image_preds[0]["scores"] > 0.8]
+    Image_preds[0]["labels"] = Image_preds[0]["labels"][Image_preds[0]["scores"] > 0.8]
+    Image_preds[0]["scores"] = Image_preds[0]["scores"][Image_preds[0]["scores"] > 0.8]
+    Image_preds = pd.DataFrame(Image_preds)
+    Image_preds['id'] = Image_i
+    return(Image_preds)
+ 
+ for Image_i in num_list:
+    Image_preds = predicts(Image_i)
+    with open('predict.csv', mode='a', newline='') as predict_file:
+        csv_writer = csv.writer(predict_file)
+        #csv_writer.writerow(['boxes','labels','scores','id'])
+        csv_writer.writerow(Image_preds.iloc[0])
+
